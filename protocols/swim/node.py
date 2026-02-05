@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
 
-from .messages import create_ping, create_ack, parse_message
+from .messages import create_ack, parse_message
 
 class Node:
     def __init__(self, node_id: str, port: int):
@@ -47,8 +47,13 @@ class Node:
                 data = conn.recv(1024)
                 if not data:
                     break
-                message = data.decode('utf-8')
-                logger.info(f"[{self.node_id}] Received {message} from {addr}")
+                message_str = data.decode('utf-8')
+                message = parse_message(message_str)
+                logger.info(f"[{self.node_id}] Parsed message is {message}")
+                if message and message.get("type", "UNKNOWN") == 'PING':
+                    reply = create_ack(self.node_id, message['sequence'])
+                    conn.send(reply.encode('utf-8'))
+                
             logger.info(f"[{self.node_id}] {addr} disconected")
         except Exception as e:
             logger.error(f"[{self.node_id}] Exception while reading data: {e}")
