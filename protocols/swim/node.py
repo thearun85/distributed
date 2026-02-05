@@ -19,19 +19,40 @@ class Node:
 
         self.socket = None # tcp socket for accepting connections
         logger.info(f"SWIM node initialized with {self.node_id} and {self.port}")
-
+    
     def accept_connections(self):
+        """Accept incoming connections"""
         while self.running:
             self.socket.settimeout(1.0)
             try:
                 conn, addr = self.socket.accept()
                 logger.info(f"[{self.node_id}] accepted a connection from {addr}")    
-                conn.close()
+                handle_thread = threading.Thread(target=self.handle_connections, args=(conn, addr))
+                handle_thread.daemon = True
+                handle_thread.start()
+                
             except socket.timeout:
                 pass
             except Exception as e:
-                while self.running:
+                if self.running:
                     logger.error(f"[{self.node_id}] Error while accepting connections: {e}")
+
+    def handle_connections(self, conn, addr):
+        """Handle individual connection"""
+        
+        try: 
+            while self.running:
+                data = conn.recv(1024)
+                if not data:
+                    break
+                message = data.decode('utf-8')
+                logger.info(f"[{self.node_id}] Received {message} from {addr}")
+            logger.info(f"[{self.node_id}] {addr} disconected")
+        except Exception as e:
+            logger.error(f"[{self.node_id}] Exception while reading data: {e}")
+        finally:
+            conn.close()
+            logger.info(f"[{self.node_id}] closing the connection for {addr}")
     
     def start(self):
         """Start the SWIM node instance"""
