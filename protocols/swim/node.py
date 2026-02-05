@@ -10,7 +10,7 @@ logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
 
-from .messages import create_ack, parse_message
+from .messages import create_ping, create_ack, parse_message
 
 class Node:
     def __init__(self, node_id: str, port: int):
@@ -20,6 +20,8 @@ class Node:
         self.running = False # flag to keep the node running continuously
 
         self.socket = None # tcp socket for accepting connections
+
+        self.sequence = 0 # to track the pings
         logger.info(f"SWIM node initialized with {self.node_id} and {self.port}")
     
     def accept_connections(self):
@@ -41,10 +43,15 @@ class Node:
 
     def handle_connections(self, conn, addr):
         """Handle individual connection"""
-        
+        conn.settimeout(5.0)
         try: 
             while self.running:
-                data = conn.recv(1024)
+                try:
+                    data = conn.recv(1024)
+                except socket.timeout as e:
+                    logger.info(f"[{self.node_id}] handle_connection timed out for {addr}")
+                    break
+                    
                 if not data:
                     break
                 message_str = data.decode('utf-8')
@@ -53,6 +60,7 @@ class Node:
                 if message and message.get("type", "UNKNOWN") == 'PING':
                     reply = create_ack(self.node_id, message['sequence'])
                     conn.send(reply.encode('utf-8'))
+                    logger.info(f"[{self.node_id}] Sent acknowledgement to {addr}")
                 
             logger.info(f"[{self.node_id}] {addr} disconected")
         except Exception as e:
@@ -60,7 +68,30 @@ class Node:
         finally:
             conn.close()
             logger.info(f"[{self.node_id}] closing the connection for {addr}")
-    
+
+    def send_ping(self, target_host: str, target_port: int):
+        """Send a PING message to a specified node"""
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            sock.connect((target_host, target_port))
+            self.sequence+=1
+            message = create_ping(self.node_id, self.sequence)
+            sock.send(message.encode('utf-8'))
+
+            data = sock.recv(1024)
+            if data:
+                message = parse_message(data.decode('utf-8'))
+                if message and message['type'] == 'ACK':
+                    logger.info(f"[{self.node_id}] Received acknowledgement from {message['sender']}")
+        except socket.timeout as e:
+            logger.error("[{self.node_id}] - send_ping timed out: {e}")
+        except ConnectionRefusedError as e:
+            logger.error(f"[{self.node_id}] - send_ping target node connection error : {e}")
+        except Exception as e:
+            logger.error(f"[{self.node_id}] send_ping exception: {e}")
+        
+        
     def start(self):
         """Start the SWIM node instance"""
         # Bind a socket to the node port and listen for connections
