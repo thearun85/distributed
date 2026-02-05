@@ -2,25 +2,48 @@
 SWIM - Distributed membership protocol - gossip/ infection style implementation
 """
 import time
+import socket
+import logging
+logging.basicConfig(level=logging.INFO)
+
+logger = logging.getLogger(__name__)
 
 class Node:
     def __init__(self, node_id: str, port: int):
         """Initialize a SWIM node instance"""
         self.node_id = node_id
         self.port = port
-        self.running = False
+        self.running = False # flag to keep the node running continuously
+
+        self.socket = None # tcp socket for accepting connections
+        logger.info(f"SWIM node initialized with {self.node_id} and {self.port}")
 
     def start(self):
         """Start the SWIM node instance"""
-        print(f"{self.node_id} started on port {self.port}")
-        self.running = True
+        # Bind a socket to the node port and listen for connections
+        try:
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # in development reuse the port for ease of use
+            self.socket.bind(("0.0.0.0", self.port))
+            self.socket.listen(5) # Listen for 5 connections backlog
+            logger.info(f"SWIM node {self.node_id} listening on port {self.port}")
+        except PermissionError as e:
+            logger.error(f"Permission denied. Cannot bind to port {self.port} (try port > 1024)")
+        except OSError as e:
+            if e.errno == 98: # Address already in use
+                logger.error(f"Port {self.port} is already in use")
+            else:
+                logger.error(f"Failed to bind socket: {e}")
+            return
 
+        self.running = True
         try:
             while self.running:
                 time.sleep(2)
 
         except KeyboardInterrupt:
             self.running = False
+            self.socket.close()
             print(f"Shutting down {self.node_id} running on port {self.port}")
 
 
