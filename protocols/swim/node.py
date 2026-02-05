@@ -4,6 +4,7 @@ SWIM - Distributed membership protocol - gossip/ infection style implementation
 import time
 import socket
 import threading
+import random
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 from .messages import create_ping, create_ack, parse_message
 
 class Node:
-    def __init__(self, node_id: str, port: int):
+    def __init__(self, node_id: str, port: int, peers: list[tuple[str, int]]):
         """Initialize a SWIM node instance"""
         self.node_id = node_id
         self.port = port
@@ -22,6 +23,8 @@ class Node:
         self.socket = None # tcp socket for accepting connections
 
         self.sequence = 0 # to track the pings
+
+        self.peers = peers # list of peer tuples
         logger.info(f"SWIM node initialized with {self.node_id} and {self.port}")
     
     def accept_connections(self):
@@ -90,7 +93,16 @@ class Node:
             logger.error(f"[{self.node_id}] - send_ping target node connection error : {e}")
         except Exception as e:
             logger.error(f"[{self.node_id}] send_ping exception: {e}")
-        
+
+    def periodic_ping(self):
+        """Periodically ping a random peer"""
+        logger.info(f"[{self.node_id}] Periodic ping thread started")
+        while self.running:
+            time.sleep(3.0)
+            if self.peers:
+                target_host, target_port = random.choice(self.peers)
+                self.send_ping(target_host, target_port)
+                logger.info(f"[{self.node_id}] Periodic ping sent to {target_host}: {target_port}")
         
     def start(self):
         """Start the SWIM node instance"""
@@ -116,6 +128,10 @@ class Node:
         accept_thread = threading.Thread(target=self.accept_connections)
         accept_thread.daemon = True
         accept_thread.start()
+
+        periodic_thread = threading.Thread(target=self.periodic_ping)
+        periodic_thread.daemon = True
+        periodic_thread.start()
         
         try:
             while self.running:
@@ -130,11 +146,33 @@ class Node:
 if __name__ == '__main__':
     import sys
     if len(sys.argv) < 3:
-        print("Usage: python node.py <node_id> <port>")
+        print("Usage: python node.py <node_id> <port> <host:port>(peers)")
         print("press CTRL+C to shutdown")
         sys.exit(1)
 
     node_id = sys.argv[1]
     port = int(sys.argv[2])
-    node = Node(node_id, port)
+    peers = []
+    print(f"Length of arguments is {len(sys.argv)}")
+    if len(sys.argv) > 3:
+            
+        peers_list = sys.argv[3:]
+        print(f"no of peers are {len(peers_list)}")
+        for peer in peers_list:
+            peer_host, peer_port = peer.split(":")
+            print(f"processing {peer} {peer_host} {peer_port}")
+            if not peer_host or not peer_port:
+                raise ValueError(f"Invalid peer {peer}! Peers must in the format 'host:port'")
+            if not isinstance(peer_host, str):
+                raise ValueError(f"Invalid host for {peer}! Peer host must be a string")
+
+            try:
+                peer_port = int(peer_port)
+            except Exception as e:
+                print(f"Invalid port {peer}! Peer port must be an integer")
+                raise ValueError(f"Invalid port {peer}! Peer port must be an integer")
+            peers.append((peer_host, peer_port))
+            print(f"Peer {peer} validated")
+    
+    node = Node(node_id, port, peers)
     node.start()
