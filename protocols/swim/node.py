@@ -88,7 +88,7 @@ class Node:
             self.socket.close()
             print(f"[{self.node_id}] Shutting down on port {self.port}")
 
-
+    
 if __name__ == '__main__':
     import sys
     if len(sys.argv) < 3:
