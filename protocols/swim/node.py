@@ -3,6 +3,8 @@ SWIM - Distributed membership protocol - gossip/ infection style implementation
 """
 import time
 import socket
+import threading
+
 import logging
 logging.basicConfig(level=logging.INFO)
 
@@ -18,6 +20,19 @@ class Node:
         self.socket = None # tcp socket for accepting connections
         logger.info(f"SWIM node initialized with {self.node_id} and {self.port}")
 
+    def accept_connections(self):
+        while self.running:
+            self.socket.settimeout(1.0)
+            try:
+                conn, addr = self.socket.accept()
+                logger.info(f"[{self.node_id}] accepted a connection from {addr}")    
+                conn.close()
+            except socket.timeout:
+                pass
+            except Exception as e:
+                while self.running:
+                    logger.error(f"[{self.node_id}] Error while accepting connections: {e}")
+    
     def start(self):
         """Start the SWIM node instance"""
         # Bind a socket to the node port and listen for connections
@@ -31,12 +46,18 @@ class Node:
             logger.error(f"Permission denied. Cannot bind to port {self.port} (try port > 1024)")
         except OSError as e:
             if e.errno == 98: # Address already in use
-                logger.error(f"Port {self.port} is already in use")
+                logger.error(f"[{self.node_id}] Port {self.port} is already in use")
             else:
-                logger.error(f"Failed to bind socket: {e}")
+                logger.error(f"[{self.node_id}] Failed to bind socket: {e}")
             return
 
         self.running = True
+
+        # a background thread for accepting connections
+        accept_thread = threading.Thread(target=self.accept_connections)
+        accept_thread.daemon = True
+        accept_thread.start()
+        
         try:
             while self.running:
                 time.sleep(2)
@@ -44,7 +65,7 @@ class Node:
         except KeyboardInterrupt:
             self.running = False
             self.socket.close()
-            print(f"Shutting down {self.node_id} running on port {self.port}")
+            print(f"[{self.node_id}] Shutting down on port {self.port}")
 
 
 if __name__ == '__main__':
