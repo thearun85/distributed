@@ -12,6 +12,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 from .messages import create_ping, create_ack, parse_message
+from .membership import MembershipList
 
 class Node:
     def __init__(self, node_id: str, port: int, peers: list[tuple[str, int]]):
@@ -25,6 +26,7 @@ class Node:
         self.sequence = 0 # to track the pings
 
         self.peers = peers # list of peer tuples
+        self.membership = MembershipList(self.node_id)
         logger.info(f"SWIM node initialized with {self.node_id} and {self.port}")
     
     def accept_connections(self):
