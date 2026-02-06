@@ -25,3 +25,9 @@ class MembershipList:
                 "last_seen": time.time(),
             }
             logger.info(f"[Membership]-{self.local_node_id}: Member {node_id}:{host}:{port} added to the group")
+
+    def mark_alive(self, node_id):
+        """Mark a member ALIVE on receiving an acknowledgement"""
+        if node_id in self.members:
+            self.members[node_id]['state'] = 'ALIVE'
+            self.members[node_id]['last_seen'] = time.time()

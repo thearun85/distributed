@@ -62,10 +62,13 @@ class Node:
                 message_str = data.decode('utf-8')
                 message = parse_message(message_str)
                 logger.info(f"[{self.node_id}] Parsed message is {message}")
-                if message and message.get("type", "UNKNOWN") == 'PING':
-                    reply = create_ack(self.node_id, message['sequence'])
-                    conn.send(reply.encode('utf-8'))
-                    logger.info(f"[{self.node_id}] Sent acknowledgement to {addr}")
+                if message:
+                    self.membership.mark_alive(message['sender'])
+                    if message.get("type", "UNKNOWN") == 'PING':
+                    
+                        reply = create_ack(self.node_id, message['sequence'])
+                        conn.send(reply.encode('utf-8'))
+                        logger.info(f"[{self.node_id}] Sent acknowledgement to {addr}")
                 
             logger.info(f"[{self.node_id}] {addr} disconected")
         except Exception as e:
@@ -89,12 +92,15 @@ class Node:
                 message = parse_message(data.decode('utf-8'))
                 if message and message['type'] == 'ACK':
                     logger.info(f"[{self.node_id}] Received acknowledgement from {message['sender']}")
+                    self.membership.mark_alive(message['sender'])
         except socket.timeout as e:
             logger.error("[{self.node_id}] - send_ping timed out: {e}")
         except ConnectionRefusedError as e:
             logger.error(f"[{self.node_id}] - send_ping target node connection error : {e}")
         except Exception as e:
             logger.error(f"[{self.node_id}] send_ping exception: {e}")
+        finally:
+            sock.close()
 
     def periodic_ping(self):
         """Periodically ping a random peer"""
