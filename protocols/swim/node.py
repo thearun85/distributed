@@ -114,6 +114,8 @@ class Node:
                 target_peer, target_host, target_port = random.choice(self.peers)
                 self.send_ping(target_peer, target_host, target_port)
                 logger.info(f"[{self.node_id}] Periodic ping sent to {target_peer}:{target_host}:{target_port}")
+            members = self.membership.get_alive_members()
+            logger.info(f"[{self.node_id}] Printing Alive members {members}" )
         
     def start(self):
         """Start the SWIM node instance"""

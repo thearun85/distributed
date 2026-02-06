@@ -39,3 +39,10 @@ class MembershipList:
         if node_id in self.members :
             self.members[node_id]['state'] = 'SUSPECT'
             self.members[node_id]['suspect_since'] = time.time()   
+
+
+
+
+    def get_alive_members(self):
+        """Get all the members marked as ALIVE"""
+        return [members for member_id, members in self.members.items() if members['state'] == 'ALIVE']
