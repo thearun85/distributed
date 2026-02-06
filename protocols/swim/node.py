@@ -109,7 +109,11 @@ class Node:
     def start(self):
         """Start the SWIM node instance"""
         # Bind a socket to the node port and listen for connections
+        
         try:
+            for peer_id, peer_host, peer_port in self.peers:
+                self.membership.add_member(peer_id, peer_host, peer_port)
+
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) # in development reuse the port for ease of use
             self.socket.bind(("0.0.0.0", self.port))
@@ -134,7 +138,7 @@ class Node:
         periodic_thread = threading.Thread(target=self.periodic_ping)
         periodic_thread.daemon = True
         periodic_thread.start()
-        
+
         try:
             while self.running:
                 time.sleep(2)
