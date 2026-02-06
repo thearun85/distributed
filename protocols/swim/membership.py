@@ -40,9 +40,15 @@ class MembershipList:
             self.members[node_id]['state'] = 'SUSPECT'
             self.members[node_id]['suspect_since'] = time.time()   
 
-
-
-
     def get_alive_members(self):
         """Get all the members marked as ALIVE"""
-        return [members for member_id, members in self.members.items() if members['state'] == 'ALIVE']
+        return [(member_id, m['host'], m['port']) for member_id, m in self.members.items() if m['state'] == 'ALIVE']
+
+    def check_suspect_timeouts(self):
+        """Check timeouts and mark members as DEAD"""
+        now = time.time()
+        for member_id, member in self.members.items():
+            if member['state'] == 'SUSPECT':
+                if (now - member['suspect_since']) > self.suspect_timeout:
+                    member['state'] = 'DEAD'
+                    logger.info(f"[Membership]-{self.local_node_id}: {member_id} marked as 'DEAD'")

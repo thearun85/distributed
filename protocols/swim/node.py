@@ -13,9 +13,10 @@ logger = logging.getLogger(__name__)
 
 from .messages import create_ping, create_ack, parse_message
 from .membership import MembershipList
+from .observer import Observer
 
 class Node:
-    def __init__(self, node_id: str, port: int, peers: list[tuple[str, int]]):
+    def __init__(self, node_id: str, port: int, observer_port: int, peers: list[tuple[str, int]]):
         """Initialize a SWIM node instance"""
         self.node_id = node_id
         self.port = port
@@ -27,6 +28,7 @@ class Node:
 
         self.peers = peers # list of peer tuples
         self.membership = MembershipList(self.node_id)
+        self.observer = Observer(self, observer_port)
         logger.info(f"SWIM node initialized with {self.node_id} and {self.port}")
     
     def accept_connections(self):
@@ -110,12 +112,18 @@ class Node:
         logger.info(f"[{self.node_id}] Periodic ping thread started")
         while self.running:
             time.sleep(3.0)
-            if self.peers:
-                target_peer, target_host, target_port = random.choice(self.peers)
-                self.send_ping(target_peer, target_host, target_port)
-                logger.info(f"[{self.node_id}] Periodic ping sent to {target_peer}:{target_host}:{target_port}")
             members = self.membership.get_alive_members()
             logger.info(f"[{self.node_id}] Printing Alive members {members}" )
+            if members:
+                target_peer, target_host, target_port = random.choice(members)
+                self.send_ping(target_peer, target_host, target_port)
+                logger.info(f"[{self.node_id}] Periodic ping sent to {target_peer}:{target_host}:{target_port}")
+
+    def check_timeouts(self):
+        logger.info(f"[{self.node_id}] Check timeout started")
+        while self.running:
+            time.sleep(1.0)
+            self.membership.check_suspect_timeouts()
         
     def start(self):
         """Start the SWIM node instance"""
@@ -150,6 +158,12 @@ class Node:
         periodic_thread.daemon = True
         periodic_thread.start()
 
+        suspect_thread = threading.Thread(target=self.check_timeouts)
+        suspect_thread.daemon = True
+        suspect_thread.start()
+
+        self.observer.start()
+
         try:
             while self.running:
                 time.sleep(2)
@@ -162,18 +176,19 @@ class Node:
     
 if __name__ == '__main__':
     import sys
-    if len(sys.argv) < 3:
-        print("Usage: python node.py <node_id> <port> <host:port>(peers)")
+    if len(sys.argv) < 4:
+        print("Usage: python node.py <node_id> <port> <observer_port > <host:port>(peers)")
         print("press CTRL+C to shutdown")
         sys.exit(1)
 
     node_id = sys.argv[1]
     port = int(sys.argv[2])
+    observer_port = int(sys.argv[3])
     peers = []
     print(f"Length of arguments is {len(sys.argv)}")
-    if len(sys.argv) > 3:
+    if len(sys.argv) > 4:
             
-        peers_list = sys.argv[3:]
+        peers_list = sys.argv[4:]
         print(f"no of peers are {len(peers_list)}")
         for peer in peers_list:
             peer_id, peer_host, peer_port = peer.split(":")
@@ -193,5 +208,5 @@ if __name__ == '__main__':
             peers.append((peer_id, peer_host, peer_port))
             print(f"Peer {peer} validated")
     
-    node = Node(node_id, port, peers)
+    node = Node(node_id, port, observer_port, peers)
     node.start()
