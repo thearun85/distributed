@@ -12,6 +12,7 @@ class MembershipList:
         """Initialize the membership object with the local node"""
         self.local_node_id = local_node_id
         self.members = {} # {'node_id': {'host':'localhost', 'port': 5001, state': 'ALIVE', 'last_seen': timestamp, 'suspect_since': timestamp}}
+        self.suspect_timeout = 5.0 # Suspect timeout to mark a member as DEAD
         logger.info(f"[Membership] {self.local_node_id} initialized")
 
     
@@ -31,3 +32,10 @@ class MembershipList:
         if node_id in self.members:
             self.members[node_id]['state'] = 'ALIVE'
             self.members[node_id]['last_seen'] = time.time()
+            self.members[node_id]['suspect_since'] = None  
+
+    def mark_suspect(self, node_id):
+        """Mark a member as SUSPECT on not receiving an acknowledgement"""
+        if node_id in self.members :
+            self.members[node_id]['state'] = 'SUSPECT'
+            self.members[node_id]['suspect_since'] = time.time()   

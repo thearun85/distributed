@@ -77,7 +77,7 @@ class Node:
             conn.close()
             logger.info(f"[{self.node_id}] closing the connection for {addr}")
 
-    def send_ping(self, target_host: str, target_port: int):
+    def send_ping(self, target_peer: str, target_host: str, target_port: int):
         """Send a PING message to a specified node"""
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -95,10 +95,13 @@ class Node:
                     self.membership.mark_alive(message['sender'])
         except socket.timeout as e:
             logger.error("[{self.node_id}] - send_ping timed out: {e}")
+            self.membership.mark_suspect(target_peer)
         except ConnectionRefusedError as e:
             logger.error(f"[{self.node_id}] - send_ping target node connection error : {e}")
+            self.membership.mark_suspect(target_peer)
         except Exception as e:
             logger.error(f"[{self.node_id}] send_ping exception: {e}")
+            self.membership.mark_suspect(target_peer)
         finally:
             sock.close()
 
@@ -109,7 +112,7 @@ class Node:
             time.sleep(3.0)
             if self.peers:
                 target_peer, target_host, target_port = random.choice(self.peers)
-                self.send_ping(target_host, target_port)
+                self.send_ping(target_peer, target_host, target_port)
                 logger.info(f"[{self.node_id}] Periodic ping sent to {target_peer}:{target_host}:{target_port}")
         
     def start(self):
