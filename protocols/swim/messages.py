@@ -5,10 +5,12 @@ import json
 import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-def create_ping(sender: str, sequence: int):
+def create_ping(sender: str, host:str, port: int, sequence: int):
     return json.dumps({
         "type": "PING",
         "sender": sender,
+        "host": host,
+        "port": port,
         "sequence": sequence,
     })
 

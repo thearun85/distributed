@@ -27,12 +27,14 @@ class MembershipList:
             }
             logger.info(f"[Membership]-{self.local_node_id}: Member {node_id}:{host}:{port} added to the group")
 
-    def mark_alive(self, node_id):
+    def mark_alive(self, node_id: str, host: str, port: int):
         """Mark a member ALIVE on receiving an acknowledgement"""
         if node_id in self.members:
             self.members[node_id]['state'] = 'ALIVE'
             self.members[node_id]['last_seen'] = time.time()
             self.members[node_id]['suspect_since'] = None  
+        else:
+            self.add_member(node_id, host, port)
 
     def mark_suspect(self, node_id):
         """Mark a member as SUSPECT on not receiving an acknowledgement"""

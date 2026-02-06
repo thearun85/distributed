@@ -65,7 +65,7 @@ class Node:
                 message = parse_message(message_str)
                 logger.info(f"[{self.node_id}] Parsed message is {message}")
                 if message:
-                    self.membership.mark_alive(message['sender'])
+                    self.membership.mark_alive(message['sender'], message['host'], message['port'])
                     if message.get("type", "UNKNOWN") == 'PING':
                     
                         reply = create_ack(self.node_id, message['sequence'])
@@ -86,7 +86,7 @@ class Node:
             sock.settimeout(2)
             sock.connect((target_host, target_port))
             self.sequence+=1
-            message = create_ping(self.node_id, self.sequence)
+            message = create_ping(self.node_id, 'localhost', self.port, self.sequence)
             sock.send(message.encode('utf-8'))
 
             data = sock.recv(1024)
@@ -94,7 +94,7 @@ class Node:
                 message = parse_message(data.decode('utf-8'))
                 if message and message['type'] == 'ACK':
                     logger.info(f"[{self.node_id}] Received acknowledgement from {message['sender']}")
-                    self.membership.mark_alive(message['sender'])
+                    self.membership.mark_alive(message['sender'], target_host, target_port)
         except socket.timeout as e:
             logger.error("[{self.node_id}] - send_ping timed out: {e}")
             self.membership.mark_suspect(target_peer)
