@@ -102,9 +102,9 @@ class Node:
         while self.running:
             time.sleep(3.0)
             if self.peers:
-                target_host, target_port = random.choice(self.peers)
+                target_peer, target_host, target_port = random.choice(self.peers)
                 self.send_ping(target_host, target_port)
-                logger.info(f"[{self.node_id}] Periodic ping sent to {target_host}: {target_port}")
+                logger.info(f"[{self.node_id}] Periodic ping sent to {target_peer}:{target_host}:{target_port}")
         
     def start(self):
         """Start the SWIM node instance"""
@@ -161,10 +161,12 @@ if __name__ == '__main__':
         peers_list = sys.argv[3:]
         print(f"no of peers are {len(peers_list)}")
         for peer in peers_list:
-            peer_host, peer_port = peer.split(":")
+            peer_id, peer_host, peer_port = peer.split(":")
             print(f"processing {peer} {peer_host} {peer_port}")
-            if not peer_host or not peer_port:
-                raise ValueError(f"Invalid peer {peer}! Peers must in the format 'host:port'")
+            if not peer_id or not peer_host or not peer_port:
+                raise ValueError(f"Invalid peer {peer}! Peers must in the format 'node:host:port'")
+            if not isinstance(peer_id, str):
+                raise ValueError(f"Invalid host for {peer}! Peer id must be a string")
             if not isinstance(peer_host, str):
                 raise ValueError(f"Invalid host for {peer}! Peer host must be a string")
 
@@ -173,7 +175,7 @@ if __name__ == '__main__':
             except Exception as e:
                 print(f"Invalid port {peer}! Peer port must be an integer")
                 raise ValueError(f"Invalid port {peer}! Peer port must be an integer")
-            peers.append((peer_host, peer_port))
+            peers.append((peer_id, peer_host, peer_port))
             print(f"Peer {peer} validated")
     
     node = Node(node_id, port, peers)
