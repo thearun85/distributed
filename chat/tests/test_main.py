@@ -1,5 +1,6 @@
 from chat_server.main import create_app
 
+
 def test_health():
     app = create_app()
     client = app.test_client()
@@ -10,4 +11,3 @@ def test_health():
     assert data['app'] == 'distributed-chat'
     assert data['version'] == '0.1.0'
     assert data['status'] == 'healthy'
-      
