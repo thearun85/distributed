@@ -1,14 +1,16 @@
 from flask import Blueprint, jsonify, request
+import uuid
 from .db import get_db
 
 from .models import User
-from .auth import hash_password
+from .auth import hash_password, verify_password
 import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 api_bp = Blueprint("api", __name__, url_prefix="/api/v1")
 
+active_tokens = {}
 
 @api_bp.route("/auth/register", methods=["POST"])
 def register():
@@ -67,3 +69,50 @@ def register():
 
     finally:
         session.close()
+
+
+@api_bp.route("/auth/login", methods=['POST'])
+def login():
+    data = request.get_json()
+    if not data:
+        return jsonify({
+            "error": "username and password is required"
+        }), 400
+
+    username = data.get("username")
+    password = data.get("password")
+    if not username or not isinstance(username, str):
+        return jsonify({
+            "error": "username is required"
+        }), 400
+
+    if not password or not isinstance(password, str):
+        return jsonify({
+            "error": "password is required"
+        }), 400
+
+    session = get_db()
+    try:
+        user = session.query(User).filter(User.username == username).first()
+        if not user or not verify_password(password, user.password_hash):
+            return jsonify({
+                "error": "Invalid credentials"
+            }), 401
+
+        active_tokens = {t:u_id for t, u_id in active_tokens.items() if u_id != user.id}
+        token = str(uuid.uuid4())
+        active_tokens[token] = user.id
+        return jsonify({
+            "username": user.username,
+            "user_id": user.id,
+            "token": token,
+        }), 200
+
+    except Exception as e:
+        logger.error(f"[Distributed Chat] user {username} not found")
+        return jsonify({
+            "error": {e}
+        }), 500
+    finally:
+        session.close()
+        
