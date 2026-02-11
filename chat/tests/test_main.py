@@ -11,3 +11,4 @@ def test_health():
     assert data["app"] == "distributed-chat"
     assert data["version"] == "0.1.0"
     assert data["status"] == "healthy"
+    assert data["db_status"] == "connected"

@@ -13,13 +13,19 @@ logger = logging.getLogger(__name__)
 
 def create_app():
     app = Flask(__name__)
-    db_url = os.getenv("DATABASE_URL")
+    db_url = os.getenv("DATABASE_URL", "sqlite:///test.db")
     if db_url:
         init_db(db_url)
 
     from .db import Base, engine
     from .models import User
+
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+
+    from .routes import api_bp
+
+    app.register_blueprint(api_bp)
 
     @app.route("/health", methods=["GET"])
     def health_check():
