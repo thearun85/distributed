@@ -50,7 +50,7 @@ class Node:
 
     def handle_connections(self, conn, addr):
         """Handle individual connection"""
-        conn.settimeout(5.0)
+        conn.settimeout(2.0)
         try: 
             while self.running:
                 try:
@@ -71,6 +71,11 @@ class Node:
                         reply = create_ack(self.node_id, message['sequence'])
                         conn.send(reply.encode('utf-8'))
                         logger.info(f"[{self.node_id}] Sent acknowledgement to {addr}")
+                    elif message.get("type", "UNKNOWN") == 'PING_REQUEST':
+                        target_alive = self.probe_node(message['target_host'], message['target_port']])
+                        if (target_alive):
+                            reply = create_ack(self.node_id, message['sequence'], message['target_node'])
+                            conn.send(reply.encode("utf-8"))
                 
             logger.info(f"[{self.node_id}] {addr} disconected")
         except Exception as e:
@@ -83,7 +88,7 @@ class Node:
         """Send a PING message to a specified node"""
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(2)
+            sock.settimeout(1.0)
             sock.connect((target_host, target_port))
             self.sequence+=1
             message = create_ping(self.node_id, 'localhost', self.port, self.sequence)
@@ -124,7 +129,37 @@ class Node:
         while self.running:
             time.sleep(1.0)
             self.membership.check_suspect_timeouts()
-        
+
+    def probe_node(self, target_host: str, target_port: int) -> bool:
+        logger.info(f"[{self.node_id}] Indirect ping to check node liveness")
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1.0)
+            sock.connect((target_host, tartget_port))
+            self.sequence+=1
+            message = create_ping(self.node_id, "localhost", self.port, self.sequence)
+            sock.send(message.encode("utf-8"))
+
+            data = sock.recv(1024)
+            if data:
+                message = parse_message(data.decode("utf-8"))
+                if message and message.get("type", "UNKNOWN") == "ACK":
+                    return True
+
+            return False
+
+        except socket.timeout as e:
+            logger.error(f"[{self.node_id}] Indirect ping to {req['target_node']} timedout")
+            return None
+        except ConnectionRefusedError as e:
+            logger.error(f"[{self.node_id}] Indirect ping to {req['target_node']} refused connection")
+            return None
+        except Exception as e:
+            logger.error(f"[{self.node_id}] Indirect ping to {req['target_node']} failed with exception: {e}")
+            return None
+        finally:
+            sock.close()
+    
     def start(self):
         """Start the SWIM node instance"""
         # Bind a socket to the node port and listen for connections
