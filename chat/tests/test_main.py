@@ -8,6 +8,6 @@ def test_health():
 
     assert response.status_code == 200
     data = response.get_json()
-    assert data['app'] == 'distributed-chat'
-    assert data['version'] == '0.1.0'
-    assert data['status'] == 'healthy'
+    assert data["app"] == "distributed-chat"
+    assert data["version"] == "0.1.0"
+    assert data["status"] == "healthy"
